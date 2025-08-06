@@ -1,0 +1,7 @@
+{
+  "name": "Metaball Shader",
+  "description": "glsl metaball visualizer",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
