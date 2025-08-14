@@ -24,20 +24,20 @@ export const fragmentShaderSource = `
     float noise(vec3 x) {
         vec3 p = floor(x);
         vec3 f = fract(x);
-        f = f*f*(3.0-2.0*f);
-        float n = p.x + p.y*7.0 + 33.0*p.z;
+        f = f*f*(3.1-2.0*f);
+        float n = p.x + p.y*47.0 + 64.0*(p.z + 150.0);
         return mix(mix(mix( hash(n+0.0), hash(n+1.0),f.x),
-                       mix( hash(n+57.0), hash(n+58.0),f.x),f.y),
-                   mix(mix( hash(n+113.0), hash(n+114.0),f.x),
-                       mix( hash(n+170.0), hash(n+171.0),f.x),f.y),f.z);
+            mix( hash(n+57.0), hash(n+58.0),f.x),f.y),
+            mix(mix( hash(n+113.0), hash(n+114.0),f.x),
+            mix( hash(n+170.0), hash(n+171.0),f.x),f.y),f.z);
     }
 
     // Fractal Brownian Motion for more detailed noise
     float fbm(vec3 p) {
         float value = 0.0;
         float amplitude = 1.2;
-        float frequency = 0.9;
-        for (int i = 0; i < 6; i++) {
+        float frequency = 0.5;
+        for (int i = 0; i < 8; i++) {
             value += amplitude * noise(p * frequency);
             frequency *= 2.0;
             amplitude *= 0.5;
@@ -76,11 +76,11 @@ export const fragmentShaderSource = `
         float d7 = length(p - p7) - 0.8;
 
         // Metaball 8
-        vec3 p8 = vec3(cos(u_time * 4.2 + 3.0) * 1.5, sin(u_time * 1.3) * 0.75, cos(u_time * 1.0 + 6.0) * 0.75);
+        vec3 p8 = vec3(cos(u_time * 4.2 + 3.0) * (u_audio.x * 3.0), sin(u_time * 1.3) * 0.75, cos(u_time * 1.0 + 6.0) * 0.75);
         float d8 = length(p - p8) - 0.6;
         
         // Blend them together, bass makes the blend sharper
-        float blendFactor = 0.6 + u_audio.x * 1.7;
+        float blendFactor = 0.6 + u_audio.x * 1.3;
         float res = smin(d1, d2, blendFactor);
         res = smin(res, d3, blendFactor);
         res = smin(res, d4, blendFactor);
@@ -91,9 +91,9 @@ export const fragmentShaderSource = `
 
         // Calculate geometric displacement
         // Highs make the displacement stronger, mids make it faster
-        float strength = (0.2 + u_audio.z * 2.8 );
+        float strength = (0.2 + (u_audio.z + u_audio.x) * 1.2 );
         float scale = 1.5 + u_audio.y * 1.45;
-        float speed = 3.05 + u_audio.z * 0.6 ;
+        float speed = 3.05 + u_audio.z * 2.6 ;
         float displacement = fbm(p * scale + ((u_audio.z * u_audio.x) + sin(u_time * 1.0 + 1.0)) * speed) * strength;
         
         // Apply displacement smoothly using the mix uniform
@@ -102,7 +102,7 @@ export const fragmentShaderSource = `
 
     // Calculate normal using gradient of the SDF
     vec3 getNormal(vec3 p) {
-        vec2 e = vec2(0.001, 0.0);
+        vec2 e = vec2(0.001 * (u_audio.z + 1.0), 0.0);
         // The normal is now automatically calculated for the deformed surface
         return normalize(vec3(
             map(p + e.xyy) - map(p - e.xyy),
@@ -129,11 +129,11 @@ export const fragmentShaderSource = `
         vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / u_resolution.y;
         vec2 mouse = (u_mouse * 2.0 - u_resolution.xy) / u_resolution.y;
         if(u_mouse.x == 0.0 && u_mouse.y == 0.0){
-          mouse = vec2(0.0);
+            mouse = vec2(0.0);
         }
 
         // Camera setup
-        vec3 ro = vec3(mouse.x * 1.0, mouse.y * 0.5, 6.0);
+        vec3 ro = vec3(mouse.x * 1.0, mouse.y * 0.5, 8.0);
         vec3 lookAt = vec3(0.0, 0.0, 0.0);
         vec3 f = normalize(lookAt - ro);
         vec3 r = normalize(cross(vec3(0.0, 1.0, 0.0), f));
@@ -150,13 +150,13 @@ export const fragmentShaderSource = `
         if (d > 0.0) {
             vec3 p = ro + rd * d;
             vec3 n = getNormal(p);
-            vec3 lightPos = vec3(2.0, 3.0, 5.0);
+            vec3 lightPos = vec3(2.0, (u_audio.z * 3.0), 5.0);
             lightPos.xz += vec2(sin(u_time*0.2), cos(u_time*0.2))*2.0;
 
             vec3 lightDir = normalize(lightPos - p);
             
             // Lighting
-            float diffuse = max(dot(n, lightDir), ((u_audio.z + u_audio.y) * 3.0));
+            float diffuse = max(dot(n, lightDir + (u_audio.z * 1.0)), ((u_audio.z + u_audio.y) * 3.0));
             
             vec3 viewDir = normalize(ro - p);
             vec3 reflectDir = reflect(-lightDir, n);
@@ -172,12 +172,12 @@ export const fragmentShaderSource = `
             // Final color composition
             vec3 baseColor = vec3(0.1, 0.1, 0.1);
             baseColor.r += u_audio.z * 0.65; // Bass adds a magenta tint
-            baseColor.g += u_audio.y * 0.5; // Mids add a green tint
-            baseColor.b += u_audio.x * 0.7; // Mids add a green tint
+            baseColor.g += u_audio.y * cos(1.5 * (u_audio.z + 0.1)); // Mids add a green tint
+            baseColor.b += u_audio.x * sin(2.5 * (u_audio.z + 0.1)); // Mids add a green tint
 
             col = baseColor * (diffuse * 0.1 + 0.1); // Ambient + Diffuse
             col += vec3(1.0) * specular * (u_audio.x * 0.8); // Specular highlights
-            col += baseColor * fresnel * (u_audio.x * 1.8); // Fresnel reflections
+            col += baseColor * fresnel + 0.1 * (u_audio.x * 1.1); // Fresnel reflections
             col = mix(col, vec3(0.8, (1.5 + u_audio.z * 0.2), 1.0), env * 0.3); // Environment reflection
             col += u_audio.z * -0.6; // Highs add a bright flash
         }
