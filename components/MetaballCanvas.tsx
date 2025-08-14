@@ -1,4 +1,3 @@
-'use client'
 import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { vertexShaderSource, fragmentShaderSource } from '../gl/shaders';
 
